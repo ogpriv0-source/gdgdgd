@@ -1,0 +1,14 @@
+name: Build Click Snap
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["**"]
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the mod
+        uses: geode-sdk/build-geode-mod@main

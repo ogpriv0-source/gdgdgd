@@ -1,0 +1,39 @@
+{
+  "geode": "4.10.1",
+  "gd": { "win": "*", "android32": "*", "android64": "*", "mac": "*", "ios": "*" },
+  "id": "ogpriv0.clicksnap",
+  "name": "Click Snap",
+  "version": "v1.0.0",
+  "developer": "ogpriv0",
+  "description": "Holds early clicks and fires them on the last step where they still work.",
+  "settings": {
+    "enabled": {
+      "type": "bool",
+      "name": "Enabled",
+      "default": true
+    },
+    "max-early": {
+      "type": "int",
+      "name": "Max early steps",
+      "description": "How many physics steps a click may be held back. Late clicks are never moved.",
+      "default": 6,
+      "min": 1,
+      "max": 40,
+      "control": { "slider": true }
+    },
+    "lookahead": {
+      "type": "int",
+      "name": "Lookahead steps",
+      "description": "How far ahead each test simulation runs. Higher = safer, but heavier on CPU.",
+      "default": 40,
+      "min": 10,
+      "max": 120,
+      "control": { "slider": true }
+    },
+    "flying": {
+      "type": "bool",
+      "name": "Also buffer in ship/UFO/wave/swing",
+      "default": false
+    }
+  }
+}
