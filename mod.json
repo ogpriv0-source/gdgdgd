@@ -7,33 +7,27 @@
   "developer": "ogpriv0",
   "description": "Holds early clicks and fires them on the last step where they still work.",
   "settings": {
-    "enabled": {
-      "type": "bool",
-      "name": "Enabled",
-      "default": true
-    },
+    "enabled": { "type": "bool", "name": "Enabled", "default": true },
     "max-early": {
-      "type": "int",
-      "name": "Max early steps",
+      "type": "int", "name": "Max early steps",
       "description": "How many physics steps a click may be held back. Late clicks are never moved.",
-      "default": 6,
-      "min": 1,
-      "max": 40,
-      "control": { "slider": true }
+      "default": 6, "min": 1, "max": 40, "control": { "slider": true }
     },
     "lookahead": {
-      "type": "int",
-      "name": "Lookahead steps",
+      "type": "int", "name": "Lookahead steps",
       "description": "How far ahead each test simulation runs. Higher = safer, but heavier on CPU.",
-      "default": 40,
-      "min": 10,
-      "max": 120,
-      "control": { "slider": true }
+      "default": 15, "min": 5, "max": 120, "control": { "slider": true }
     },
-    "flying": {
-      "type": "bool",
-      "name": "Also buffer in ship/UFO/wave/swing",
-      "default": false
+    "flying": { "type": "bool", "name": "Also buffer in ship/UFO/wave/swing", "default": false },
+    "time-limit-ms": {
+      "type": "int", "name": "Slow limit (ms)",
+      "description": "If one test simulation takes longer than this, buffering pauses for a few seconds. Raise it on big levels (costs FPS).",
+      "default": 8, "min": 1, "max": 60, "control": { "slider": true }
+    },
+    "debug": {
+      "type": "bool", "name": "Debug log",
+      "description": "Writes what Click Snap is doing to the Geode log.",
+      "default": true
     }
   }
 }
