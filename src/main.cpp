@@ -13,31 +13,35 @@ namespace {
         std::deque<Ev> q;
         int64_t step = 0;
         int64_t offset = 0;
+        int64_t lastPressFireStep = -1;
         float lastDt = 1.f / 240.f;
         bool simulating = false;
         bool simDied = false;
         bool realDown = false;
         int64_t skipUntil = 0;
-
-        void reset() { q.clear(); step = 0; offset = 0; realDown = false; simulating = false; skipUntil = 0; }
+        void reset() {
+            q.clear();
+            step = 0;
+            offset = 0;
+            lastPressFireStep = -1;
+            realDown = false;
+            simulating = false;
+            skipUntil = 0;
+        }
     };
     Buffer g;
-
     bool on()        { return Mod::get()->getSettingValue<bool>("enabled"); }
     int  maxEarly()  { return (int)Mod::get()->getSettingValue<int64_t>("max-early"); }
     int  lookahead() { return (int)Mod::get()->getSettingValue<int64_t>("lookahead"); }
     bool flyingOk()  { return Mod::get()->getSettingValue<bool>("flying"); }
     double limitMs() { return (double)Mod::get()->getSettingValue<int64_t>("time-limit-ms"); }
     bool dbg()       { return Mod::get()->getSettingValue<bool>("debug"); }
-
     bool isPlayLayer(GJBaseGameLayer* layer) {
         return layer != nullptr && layer == static_cast<GJBaseGameLayer*>(PlayLayer::get());
     }
 }
 
 class $modify(CSLayer, GJBaseGameLayer) {
-
-    // nullptr = buffering is active, otherwise the reason it is not
     const char* whyNot() {
         if (!on()) return "mod disabled";
         if (!isPlayLayer(this)) return "not a PlayLayer";
@@ -59,7 +63,6 @@ class $modify(CSLayer, GJBaseGameLayer) {
 
         g.simulating = true;
         g.simDied = false;
-
         int total = delay + lookahead();
         for (int i = 0; i < total && !g.simDied; ++i) {
             if (i == delay)     GJBaseGameLayer::handleButton(true, 1, true);
@@ -70,7 +73,6 @@ class $modify(CSLayer, GJBaseGameLayer) {
         pl->loadFromCheckpoint(snap);
         snap->release();
         GJBaseGameLayer::handleButton(g.realDown, 1, true);
-
         g.simulating = false;
         bool ok = !g.simDied;
         g.simDied = false;
@@ -90,6 +92,7 @@ class $modify(CSLayer, GJBaseGameLayer) {
             }
             return;
         }
+
         while (!g.q.empty()) {
             Ev e = g.q.front();
             if (e.down) {
@@ -114,8 +117,13 @@ class $modify(CSLayer, GJBaseGameLayer) {
                 if (!fire) break;
                 if (dbg()) log::info("[ClickSnap] FIRE press after holding {} steps ({})", age, reason);
                 g.offset = age;
+                g.lastPressFireStep = g.step;
                 this->forwardEvent(true);
             } else {
+                // A very short click can have its release queued for the same
+                // step as its press. Never send both edges in one physics step:
+                // that can collapse the buffered click into an unregistered tap.
+                if (g.step <= g.lastPressFireStep) break;
                 if (g.step < e.step + g.offset) break;
                 this->forwardEvent(false);
             }
