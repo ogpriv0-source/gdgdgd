@@ -17,7 +17,7 @@ namespace {
         bool simulating = false;
         bool simDied = false;
         bool realDown = false;
-        int64_t skipUntil = 0;   // buffering disabled until this step
+        int64_t skipUntil = 0;
 
         void reset() { q.clear(); step = 0; offset = 0; realDown = false; simulating = false; skipUntil = 0; }
     };
@@ -27,6 +27,8 @@ namespace {
     int  maxEarly()  { return (int)Mod::get()->getSettingValue<int64_t>("max-early"); }
     int  lookahead() { return (int)Mod::get()->getSettingValue<int64_t>("lookahead"); }
     bool flyingOk()  { return Mod::get()->getSettingValue<bool>("flying"); }
+    double limitMs() { return (double)Mod::get()->getSettingValue<int64_t>("time-limit-ms"); }
+    bool dbg()       { return Mod::get()->getSettingValue<bool>("debug"); }
 
     bool isPlayLayer(GJBaseGameLayer* layer) {
         return layer != nullptr && layer == static_cast<GJBaseGameLayer*>(PlayLayer::get());
@@ -35,16 +37,18 @@ namespace {
 
 class $modify(CSLayer, GJBaseGameLayer) {
 
-    bool bufferable() {
-        if (!on() || !isPlayLayer(this)) return false;
-        if (g.step < 120 || g.step < g.skipUntil) return false; // startup / too slow
+    // nullptr = buffering is active, otherwise the reason it is not
+    const char* whyNot() {
+        if (!on()) return "mod disabled";
+        if (!isPlayLayer(this)) return "not a PlayLayer";
+        if (g.step < 120) return "level just started";
+        if (g.step < g.skipUntil) return "paused (simulation was too slow)";
         auto p = m_player1;
-        if (!p) return false;
-        if (!flyingOk() && (p->m_isShip || p->m_isBird || p->m_isDart || p->m_isSwing)) return false;
-        return true;
+        if (!p) return "no player";
+        if (!flyingOk() && (p->m_isShip || p->m_isBird || p->m_isDart || p->m_isSwing)) return "flying mode";
+        return nullptr;
     }
 
-    // Would a tap started `delay` steps from now survive `lookahead` steps?
     bool survivesIfPressedIn(int delay) {
         auto pl = PlayLayer::get();
         if (!pl) return true;
@@ -79,8 +83,7 @@ class $modify(CSLayer, GJBaseGameLayer) {
     }
 
     void flushBuffer() {
-        // If buffering is currently off, release everything immediately.
-        if (!this->bufferable()) {
+        if (this->whyNot()) {
             while (!g.q.empty()) {
                 this->forwardEvent(g.q.front().down);
                 g.q.pop_front();
@@ -92,19 +95,24 @@ class $modify(CSLayer, GJBaseGameLayer) {
             if (e.down) {
                 int64_t age = g.step - e.step;
                 bool fire = age >= maxEarly();
+                const char* reason = fire ? "reached max early steps" : "";
                 if (!fire) {
                     auto t0 = std::chrono::steady_clock::now();
                     bool safe = this->survivesIfPressedIn(1);
                     double ms = std::chrono::duration<double, std::milli>(
                         std::chrono::steady_clock::now() - t0).count();
-                    if (ms > 4.0) {            // too slow: back off for a while
+                    if (dbg()) log::info("[ClickSnap] test: age={} later-press-safe={} took {:.2f} ms", age, safe, ms);
+                    if (ms > limitMs()) {
                         g.skipUntil = g.step + 480;
                         fire = true;
-                    } else {
-                        fire = !safe;
+                        reason = "simulation too slow, pausing";
+                    } else if (!safe) {
+                        fire = true;
+                        reason = "waiting longer would fail";
                     }
                 }
                 if (!fire) break;
+                if (dbg()) log::info("[ClickSnap] FIRE press after holding {} steps ({})", age, reason);
                 g.offset = age;
                 this->forwardEvent(true);
             } else {
@@ -119,10 +127,13 @@ class $modify(CSLayer, GJBaseGameLayer) {
         if (g.simulating || button != 1 || !isPlayer1) {
             return GJBaseGameLayer::handleButton(down, button, isPlayer1);
         }
-        if (g.q.empty() && !this->bufferable()) {
+        const char* why = this->whyNot();
+        if (g.q.empty() && why) {
+            if (down && dbg()) log::info("[ClickSnap] press passed through: {}", why);
             g.realDown = down;
             return GJBaseGameLayer::handleButton(down, button, isPlayer1);
         }
+        if (down && dbg()) log::info("[ClickSnap] press queued at step {}", g.step);
         g.q.push_back({down, g.step});
     }
 
