@@ -14,3 +14,4 @@ jobs:
         uses: geode-sdk/build-geode-mod@main
         with:
           sdk: nightly
+          configure-args: -DSKIP_BUILDING_CODEGEN=OFF
