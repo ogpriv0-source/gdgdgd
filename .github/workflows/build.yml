@@ -11,8 +11,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build the mod
+        id: build
         uses: geode-sdk/build-geode-mod@main
         with:
           sdk: v5.11.2
           bindings-ref: f050fd74ad531b0827377c97510cb807903ff1b3
           configure-args: -DSKIP_BUILDING_CODEGEN=OFF
+      - name: Save the .geode file
+        uses: actions/upload-artifact@v4
+        with:
+          name: Click Snap
+          path: ${{ steps.build.outputs.build-output }}
