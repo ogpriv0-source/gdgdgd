@@ -1,5 +1,5 @@
 {
-  "geode": "4.10.1",
+  "geode": "5.11.2",
   "gd": { "win": "*", "android32": "*", "android64": "*", "mac": "*", "ios": "*" },
   "id": "ogpriv0.clicksnap",
   "name": "Click Snap",
