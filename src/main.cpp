@@ -2,6 +2,7 @@
 #include <Geode/modify/GJBaseGameLayer.hpp>
 #include <Geode/modify/PlayLayer.hpp>
 #include <deque>
+#include <chrono>
 
 using namespace geode::prelude;
 
@@ -16,8 +17,9 @@ namespace {
         bool simulating = false;
         bool simDied = false;
         bool realDown = false;
+        int64_t skipUntil = 0;   // buffering disabled until this step
 
-        void reset() { q.clear(); step = 0; offset = 0; realDown = false; simulating = false; }
+        void reset() { q.clear(); step = 0; offset = 0; realDown = false; simulating = false; skipUntil = 0; }
     };
     Buffer g;
 
@@ -35,6 +37,7 @@ class $modify(CSLayer, GJBaseGameLayer) {
 
     bool bufferable() {
         if (!on() || !isPlayLayer(this)) return false;
+        if (g.step < 120 || g.step < g.skipUntil) return false; // startup / too slow
         auto p = m_player1;
         if (!p) return false;
         if (!flyingOk() && (p->m_isShip || p->m_isBird || p->m_isDart || p->m_isSwing)) return false;
@@ -76,12 +79,31 @@ class $modify(CSLayer, GJBaseGameLayer) {
     }
 
     void flushBuffer() {
+        // If buffering is currently off, release everything immediately.
+        if (!this->bufferable()) {
+            while (!g.q.empty()) {
+                this->forwardEvent(g.q.front().down);
+                g.q.pop_front();
+            }
+            return;
+        }
         while (!g.q.empty()) {
             Ev e = g.q.front();
             if (e.down) {
                 int64_t age = g.step - e.step;
                 bool fire = age >= maxEarly();
-                if (!fire) fire = !this->survivesIfPressedIn(1);
+                if (!fire) {
+                    auto t0 = std::chrono::steady_clock::now();
+                    bool safe = this->survivesIfPressedIn(1);
+                    double ms = std::chrono::duration<double, std::milli>(
+                        std::chrono::steady_clock::now() - t0).count();
+                    if (ms > 4.0) {            // too slow: back off for a while
+                        g.skipUntil = g.step + 480;
+                        fire = true;
+                    } else {
+                        fire = !safe;
+                    }
+                }
                 if (!fire) break;
                 g.offset = age;
                 this->forwardEvent(true);
