@@ -13,5 +13,5 @@ jobs:
       - name: Build the mod
         uses: geode-sdk/build-geode-mod@main
         with:
-          sdk: nightly
-          configure-args: -DSKIP_BUILDING_CODEGEN=OFF
+          sdk: v5.11.2
+          bindings-ref: f050fd74ad531b0827377c97510cb807903ff1b3
